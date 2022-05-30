@@ -174,15 +174,8 @@ public class SearchServiceTest {
                         Iterator<String> urlsIter = urlPageLinksSet.iterator();
 
                         while(urlsIter.hasNext()) {
-
-                                String url = urlsIter.next();
-
-                                Optional<CiUrlPK> urlPkOpt = Utils.parseAndValidateUrl(url);
-
-                                Optional<CiUrl> entityOpt = urlPkOpt.flatMap(pk -> jpaRepo.findById(pk));
-
-                                if(entityOpt.isPresent()) {
-                                        String contentOfThePage = entityOpt.map(ent -> ent.getContent()).orElse("");
+                                        String url = urlsIter.next();
+                                        String contentOfThePage = getPageContent(url);
 
                                         if(!contentOfThePage.isEmpty()) {
 
@@ -190,7 +183,7 @@ public class SearchServiceTest {
                                                 positivelyLoadedPages.add(url);
                                                 urlsIter.remove();
                                         }
-                                }
+
                         }
 
                         i++;
@@ -210,9 +203,9 @@ public class SearchServiceTest {
         
         private String getPageContent(String pageUrl) {
 
-                Optional<CiUrlPK> urlPkOpt = Utils.parseAndValidateUrl(pageUrl);
-                CiUrlPK ciUrlPK = urlPkOpt.get();
-                String pageContent = jpaRepo.findById(ciUrlPK).get().getContent();
+                Optional<CiUrlPK> idOpt = Utils.parseAndValidateUrl(pageUrl);
+                CiUrlPK id = idOpt.get();
+                String pageContent = jpaRepo.findById(id).map(ent -> ent.getContent()).orElse("");
                 return pageContent;
         }
         
