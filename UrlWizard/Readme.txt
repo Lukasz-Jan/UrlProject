@@ -30,10 +30,11 @@ b) Menu appears and we write in Goals:
 	curl -d "https://tools.ietf.org/html/rfc3986#section-3.4" -X POST -H "Accept: text/plain" -H "Content-Type: text/plain" http://localhost:8082/postUrl -i
  
 2.
- Run tests:
- for package launcher.restServices.test  
- test -Dtest=SearchServiceTest
- test -Dtest=SearchServiceTest#singleSearchForOneWordOnManyPages
+Run tests:
+for package launcher.restServices.test  
+test -Dtest=SearchServiceTest
+test -Dtest=SearchServiceTest#singleSearchForOneWordOnManyPages
+test -Dtest=SearchServiceTest#parallelSearchForOneWord
  
  
  test -Dtest=UrlServiceRSPostTest

@@ -1,8 +1,8 @@
 package launcher.restServices.test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -31,179 +31,189 @@ import entities.CiUrlPK;
 import launcher.repositories.UrlJpaRepo;
 import launcher.testUtils.TestDataProducer;
 import launcher.testUtils.Utils;
+import static org.hamcrest.CoreMatchers.*;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(OrderAnnotation.class)
 public class SearchServiceTest {
 
-	@LocalServerPort
-	private int port;
+        @LocalServerPort
+        private int port;
 
-	@Autowired
-	private TestRestTemplate restTemplate;
-	@Autowired
-	private UrlJpaRepo jpaRepo;
+        @Autowired
+        private TestRestTemplate restTemplate;
+        @Autowired
+        private UrlJpaRepo jpaRepo;
 
-	private String getEndPointPart;
+        private String getEndPointPart;
 
-	private String postEndPoint;
+        private String postEndPoint;
 
-	private int MAX_ATTEMPTS = 40;
+        private int MAX_ATTEMPTS = 40;
 
-	private List<String> testUrlsList;
+        private List<String> testUrlsList;
 
-	private String requestUrl;
+        private String requestUrl;
 
-	private static final int INTERVAL_MS = 1500;
+        private static final int INTERVAL_MS = 1500;
 
-	@BeforeAll
-	public void init() {
+        private List<String> positivelyLoadedPages = new ArrayList<String>();
 
-		getEndPointPart = "http://localhost:" + this.port + "/";
-		postEndPoint = "http://localhost:" + this.port + "/postUrl";
-	}
+        @BeforeAll
+        public void init() {
 
-	@AfterAll
-	public void tearDown() {
+                getEndPointPart = "http://localhost:" + this.port + "/";
+                postEndPoint = "http://localhost:" + this.port + "/postUrl";
+        }
 
-		// jpaRepo.deleteAll();
-	}
+        @AfterAll
+        public void tearDown() {
 
-	// data to database should be loaded from script urlLoad.sql and now is not
-	// searched word doctype should be hidden in https://www.google.com/
-	// Sample command which is tested:
-	// http://localhost:8082/searchForText/?word=doctype
-	// test -Dtest=SearchServiceTest#singleSearchForOneWordOnManyPages
-	@Test
-	@Order(1)
-	public void singleSearchForOneWordOnManyPages() throws Exception {
+                // jpaRepo.deleteAll();
+        }
 
-		initializeDatabaseDataForOption("smallCollectionWithDuplicates");
-		MAX_ATTEMPTS = 20;
+        // data to database should be loaded from script urlLoad.sql and now is not
+        // searched word doctype should be hidden in https://www.google.com/
+        // Sample command which is tested:
+        // http://localhost:8082/searchForText/?word=doctype
+        // test -Dtest=SearchServiceTest#singleSearchForOneWordOnManyPages
+        @Test
+        @Order(1)
+        public void singleSearchForOneWordOnManyPages() throws Exception {
 
-		final String expectedResponseStr = "https://www.google.com/";
-		final String searchedWord = "doctype";
+                initializeDatabaseDataForOption("smallCollectionWithDuplicates");
+                MAX_ATTEMPTS = 20;
 
-		requestUrl = getEndPointPart + "searchForText/?word=" + searchedWord; // SHOULD
-		                                                                      // BE
-		                                                                      // http://localhost:xy/search/?word=doctype
-		//
+                final String expectedResponseStr = "https://www.google.com/";
+                final String searchedWord = "doctype";
 
-		System.out.println("Search in database for : " + requestUrl);
+                requestUrl = getEndPointPart + "searchForText/?word=" + searchedWord; // SHOULD
+                                                                                      // BE
+                                                                                      // http://localhost:xy/search/?word=doctype
+                //
 
-		ResponseEntity<String> respEntity = restTemplate.getForEntity(requestUrl, String.class);
+                System.out.println("Search in database for : " + requestUrl);
 
-		assertThat(respEntity.getStatusCode()).isEqualByComparingTo(HttpStatus.OK);
+                ResponseEntity<String> respEntity = restTemplate.getForEntity(requestUrl, String.class);
 
-		System.out.println("\nrespEntity.getBody():\n" + respEntity.getBody());
+                assertThat(respEntity.getStatusCode()).isEqualByComparingTo(HttpStatus.OK);
 
-		assertThat(respEntity.getBody()).isEqualTo(expectedResponseStr);
-	}
+                System.out.println("\nrespEntity.getBody():\n" + respEntity.getBody());
 
-	/*
-	 * parallel: http://localhost:8082/search/?word=DOCTYPE
-	 */
-	//@Test
-	@Order(2)
-	public void parallelSearchForOneWord() throws Exception {
+                assertThat(respEntity.getBody()).isEqualTo(expectedResponseStr);
+        }
 
-		initializeDatabaseDataForOption("collectionWithDuplicates");
-		final String searchedWord = "DOCTYPE";
-		requestUrl = getEndPointPart + "searchForText/?word=" + searchedWord; // http://localhost:8082/searchForText/?word=DOCTYPE
+        /*
+         * parallel: http://localhost:8082/search/?word=DOCTYPE
+         */
+        @Test
+        @Order(2)
+        public void parallelSearchForOneWord() throws Exception {
 
-		List<String> urlList = Collections.nCopies(20, requestUrl);
+                initializeDatabaseDataForOption("collectionWithDuplicates");
+                final String searchedWord = "DOCTYPE";
+                requestUrl = getEndPointPart + "searchForText/?word=" + searchedWord; // http://localhost:8082/searchForText/?word=DOCTYPE
 
-		// twenty parallel request are sent, all are the same, which
-		// contains word DOCTYPE
+                List<String> urlList = Collections.nCopies(20, requestUrl);
 
-		List<ResponseEntity<String>> getsResponses = urlList.stream().parallel().map(url->restTemplate.getForEntity(url, String.class)).collect(Collectors.toList());
+                // twenty parallel request are sent, all are the same, which
+                // contains word DOCTYPE
 
-		final String expectedResponseStr = "https://openjdk.java.net/jeps/361\r\n" + "https://www.nvidia.com/pl-pl/geforce/rtx/\r\n"
-		                + "https://openjdk.java.net/projects/panama/\r\n" + "https://docs.oracle.com/javase/specs/jls/se9/html/jls-15.html#jls-15.27.1\r\n"
-		                + "https://openjdk.java.net/jeps/366\r\n"
-		                + "https://www.nvidia.com/pl-pl/geforce/gaming-laptops/?nvid=nv-int-csfg-19993#cid=gf40_nv-int-csfg_en-us\r\n"
-		                + "https://openjdk.java.net/jeps/323\r\n" + "https://www.nvidia.com/en-us/\r\n"
-		                + "https://www.defence24.com/ibcs-in-production-phase-more-tests-soon\r\n" + "https://www.energa.pl/dom/oferty.html\r\n"
-		                + "https://mkyong.com/java/what-is-new-in-java-11/\r\n"
-		                + "https://docs.oracle.com/javase/specs/jls/se9/html/jls-15.html#jls-InferredFormalParameterList\r\n" + "https://www.energa.pl/dom\r\n"
-		                + "https://www.nvidia.com/pl-pl/geforce/graphics-cards/30-series/\r\n"
-		                + "https://www.energa.pl/dom/aktualnosci/news/zmiana-taryfy-Energa-Operator-2021\r\n"
-		                + "https://www.defence24.com/polish-modernization-of-bwp-1-analysis\r\n" + "https://datatracker.ietf.org/doc/html/rfc3986\r\n"
-		                + "https://www.nvidia.com/en-gb/design-visualization/desktop-graphics/\r\n" + "https://www.energa.pl/dom/oferty/prosument.html";
+                List<ResponseEntity<String>> getsResponses = urlList.stream().parallel().map(url -> restTemplate.getForEntity(url, String.class)).collect(Collectors.toList());
+                
+                for(ResponseEntity<String> response : getsResponses) {
 
+                        assertThat(response.getStatusCode()).isEqualByComparingTo(HttpStatus.OK);
+                }
 
-	
-		for(ResponseEntity<String> response : getsResponses) {
+                for(ResponseEntity<String> response : getsResponses) {
 
-			assertThat(response.getStatusCode()).isEqualByComparingTo(HttpStatus.OK);
-			
-			assertThat(response.getBody()).isEqualTo(expectedResponseStr);
-		}
-	}
+                        for(String page : positivelyLoadedPages) {
 
-	/*
-	 * Requests to download pages are sent firstly. Then pages are
-	 * downloaded to database.
-	 */
-	private void initializeDatabaseDataForOption(String opt) throws InterruptedException {
+                                String pageContent = getPageContent(page);
+                                // has to check if every positevely loaded page contains searched word
+                                if(pageContent.contains(searchedWord)) {
+                                
+                                        boolean contains = response.getBody().contains(page);
+                                        assertThat(contains).isEqualTo(true);
+                                } 
+                        }
+                }
+        }
 
-		MAX_ATTEMPTS = 15;
+        /*
+         * Requests to download pages are sent firstly. Then pages are
+         * downloaded to database.
+         */
+        private void initializeDatabaseDataForOption(String opt) throws InterruptedException {
 
-		testUrlsList = TestDataProducer.pageCollection(opt);
+                MAX_ATTEMPTS = 15;
 
-		int noOfLinks = testUrlsList.size();
-		System.out.println("noOfLinks to be downloaded: " + noOfLinks);
+                testUrlsList = TestDataProducer.pageCollection(opt);
 
-		// sending links to be downloaded to database
-		List<ResponseEntity<String>> collect = testUrlsList.stream().map(url->restTemplate.postForEntity(postEndPoint, url, String.class)).collect(Collectors.toList());
+                int noOfLinks = testUrlsList.size();
+                System.out.println("noOfLinks to be downloaded: " + noOfLinks);
 
-		for(ResponseEntity<String> resp : collect) {
+                // sending links to be downloaded to database
+                List<ResponseEntity<String>> collect = testUrlsList.stream().map(url -> restTemplate.postForEntity(postEndPoint, url, String.class)).collect(Collectors.toList());
 
-			assertThat(resp.getStatusCode()).isEqualByComparingTo(HttpStatus.ACCEPTED);
-		}
+                for(ResponseEntity<String> resp : collect) {
 
-		Set<String> urlPageLinksSet = new HashSet<String>(testUrlsList);
-		int distinctLinksSize = urlPageLinksSet.size();
+                        assertThat(resp.getStatusCode()).isEqualByComparingTo(HttpStatus.ACCEPTED);
+                }
 
-		int successDownloadsNumber = 0;
-		int i = 0;
-		do {
-			Thread.sleep(INTERVAL_MS);
+                Set<String> urlPageLinksSet = new HashSet<String>(testUrlsList);
+                int distinctLinksSize = urlPageLinksSet.size();
 
-			Iterator<String> urlsIter = urlPageLinksSet.iterator();
+                int successDownloadsNumber = 0;
+                int i = 0;
+                do {
+                        Thread.sleep(INTERVAL_MS);
 
-			while(urlsIter.hasNext()) {
+                        Iterator<String> urlsIter = urlPageLinksSet.iterator();
 
-				String url = urlsIter.next();
+                        while(urlsIter.hasNext()) {
 
-				Optional<CiUrlPK> urlPkOpt = Utils.parseAndValidateUrl(url);
+                                String url = urlsIter.next();
 
-				Optional<CiUrl> entityOpt = urlPkOpt.flatMap(pk->jpaRepo.findById(pk));
+                                Optional<CiUrlPK> urlPkOpt = Utils.parseAndValidateUrl(url);
 
-				if(entityOpt.isPresent()) {
-					String contentOfThePage = entityOpt.map(ent->ent.getContent()).orElse("");
+                                Optional<CiUrl> entityOpt = urlPkOpt.flatMap(pk -> jpaRepo.findById(pk));
 
-					if(!contentOfThePage.isEmpty()) {
+                                if(entityOpt.isPresent()) {
+                                        String contentOfThePage = entityOpt.map(ent -> ent.getContent()).orElse("");
 
-						successDownloadsNumber++;
-						urlsIter.remove();
-					}
-				}
-			}
+                                        if(!contentOfThePage.isEmpty()) {
 
-			i++;
-		} while((i < MAX_ATTEMPTS) && (successDownloadsNumber < distinctLinksSize - 1));
+                                                successDownloadsNumber++;
+                                                positivelyLoadedPages.add(url);
+                                                urlsIter.remove();
+                                        }
+                                }
+                        }
 
-		System.out.println("Number of links to download: " + distinctLinksSize);
-		System.out.println("Number of downloaded pages:  " + successDownloadsNumber);
+                        i++;
+                } while((i < MAX_ATTEMPTS) && (successDownloadsNumber < distinctLinksSize - 1));
 
-		if(successDownloadsNumber < distinctLinksSize) {
+                System.out.println("Number of links to download: " + distinctLinksSize);
+                System.out.println("Number of downloaded pages:  " + successDownloadsNumber);
 
-			System.out.println("WARNING not all links were retrieved, test may need redesign or update");
-		}
+                if(successDownloadsNumber < distinctLinksSize) {
 
-		double inintervalMs = i * INTERVAL_MS / 1000;
-		System.out.println("Download time: " + inintervalMs);
-	}
+                        System.out.println("WARNING not all links were retrieved, test may need redesign or update");
+                }
+
+                double inintervalMs = i * INTERVAL_MS / 1000;
+                System.out.println("Download time: " + inintervalMs);
+        }
+        
+        private String getPageContent(String pageUrl) {
+
+                Optional<CiUrlPK> urlPkOpt = Utils.parseAndValidateUrl(pageUrl);
+                CiUrlPK ciUrlPK = urlPkOpt.get();
+                String pageContent = jpaRepo.findById(ciUrlPK).get().getContent();
+                return pageContent;
+        }
+        
 }
